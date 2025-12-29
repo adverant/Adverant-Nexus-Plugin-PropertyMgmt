@@ -1,0 +1,1016 @@
+// Nexus Property Management Database Schema
+// PostgreSQL with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USERS & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  phone         String?
+  role          UserRole @default(PROPERTY_MANAGER)
+
+  // Relationships
+  managedProperties Property[] @relation("PropertyManager")
+  ownedProperties   Property[] @relation("PropertyOwner")
+  inspections       Inspection[]
+  serviceRequests   ServiceRequest[] @relation("AssignedTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PROPERTY_MANAGER
+  PROPERTY_OWNER
+  CLEANER
+  MAINTENANCE
+  GUEST
+}
+
+// ============================================================================
+// PROPERTIES
+// ============================================================================
+
+model Property {
+  id              String       @id @default(uuid())
+  ownerId         String
+  managerId       String?
+
+  name            String
+  propertyType    PropertyType
+  description     String?
+
+  // Address
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  state           String
+  postalCode      String
+  country         String       @default("US")
+  latitude        Float?
+  longitude       Float?
+
+  // Property Details
+  bedrooms        Int
+  bathrooms       Decimal      @db.Decimal(3, 1)
+  maxGuests       Int
+  baseGuests      Int          @default(2)
+  squareFeet      Int?
+
+  // Times
+  checkInTime     String       @default("15:00")
+  checkOutTime    String       @default("11:00")
+
+  // Amenities & Rules
+  amenities       Json         @default("[]")
+  houseRules      Json         @default("{}")
+
+  // Pricing
+  basePrice       Decimal      @db.Decimal(10, 2)
+  cleaningFee     Decimal      @db.Decimal(10, 2)
+  securityDeposit Decimal      @db.Decimal(10, 2)
+
+  // Status
+  status          PropertyStatus @default(ACTIVE)
+
+  // Photos
+  photos          Json         @default("[]")
+
+  // Relationships
+  owner           User         @relation("PropertyOwner", fields: [ownerId], references: [id])
+  manager         User?        @relation("PropertyManager", fields: [managerId], references: [id])
+  units           Unit[]
+  reservations    Reservation[]
+  smartLocks      SmartLock[]
+  inspections     Inspection[]
+  damages         Damage[]
+  workOrders      WorkOrder[]
+  inventoryLevels InventoryLevel[]
+  stagingDesigns  StagingDesign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([managerId])
+  @@index([status])
+  @@map("properties")
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  CONDO
+  TOWNHOUSE
+  CABIN
+  COTTAGE
+  LOFT
+  STUDIO
+  OTHER
+}
+
+enum PropertyStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  MAINTENANCE
+}
+
+model Unit {
+  id           String   @id @default(uuid())
+  propertyId   String
+  unitNumber   String
+  floor        Int?
+  bedrooms     Int
+  bathrooms    Decimal  @db.Decimal(3, 1)
+  squareFeet   Int?
+  amenities    Json     @default("[]")
+  status       UnitStatus @default(AVAILABLE)
+
+  // Relationships
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  smartLocks   SmartLock[]
+  inspections  Inspection[]
+  inventoryLevels InventoryLevel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, unitNumber])
+  @@index([propertyId])
+  @@map("units")
+}
+
+enum UnitStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+// ============================================================================
+// GUESTS
+// ============================================================================
+
+model Guest {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  phone           String?
+  firstName       String?
+  lastName        String?
+  profilePhotoUrl String?
+
+  // Preferences (stored as JSON)
+  preferences     Json     @default("{}")
+
+  // Loyalty
+  loyaltyTier     LoyaltyTier @default(STANDARD)
+  loyaltyPoints   Int      @default(0)
+  totalBookings   Int      @default(0)
+
+  // Relationships
+  reservations    Reservation[]
+  serviceRequests ServiceRequest[]
+  upsellOrders    UpsellOrder[]
+  aiConversations AiConversation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("guests")
+}
+
+enum LoyaltyTier {
+  STANDARD
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+// ============================================================================
+// RESERVATIONS
+// ============================================================================
+
+model Reservation {
+  id                   String   @id @default(uuid())
+  propertyId           String
+  unitId               String?
+  guestId              String
+
+  // Channel Info
+  channel              BookingChannel
+  channelReservationId String?
+  confirmationCode     String   @unique
+
+  // Dates
+  checkInDate          DateTime @db.Date
+  checkOutDate         DateTime @db.Date
+  nights               Int
+  guests               Int
+
+  // Status
+  status               ReservationStatus @default(PENDING)
+  paymentStatus        PaymentStatus @default(PENDING)
+
+  // Pricing (stored as JSON for flexibility)
+  pricing              Json     // {nightly_rate, cleaning_fee, service_fee, taxes, total}
+
+  // Guest Info (stored as JSON)
+  guestInfo            Json?    // {name, email, phone, special_requests}
+
+  // Check-in/out
+  checkedInAt          DateTime?
+  checkedOutAt         DateTime?
+
+  // Relationships
+  property             Property @relation(fields: [propertyId], references: [id])
+  unit                 Unit?    @relation(fields: [unitId], references: [id])
+  guest                Guest    @relation(fields: [guestId], references: [id])
+  accessCodes          AccessCode[]
+  serviceRequests      ServiceRequest[]
+  upsellOrders         UpsellOrder[]
+  aiConversations      AiConversation[]
+  inspections          Inspection[]
+  damages              Damage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId, checkInDate, checkOutDate])
+  @@index([guestId])
+  @@index([status])
+  @@index([confirmationCode])
+  @@map("reservations")
+}
+
+enum BookingChannel {
+  AIRBNB
+  VRBO
+  BOOKING_COM
+  EXPEDIA
+  DIRECT
+  OTHER
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  REFUNDED
+  FAILED
+}
+
+// ============================================================================
+// SMART LOCKS & ACCESS CONTROL
+// ============================================================================
+
+model SmartLock {
+  id               String   @id @default(uuid())
+  propertyId       String
+  unitId           String?
+
+  provider         LockProvider
+  deviceId         String   @unique // Seam device ID
+
+  name             String
+  location         String?  // front_door, back_door, garage, etc.
+
+  model            String?
+  firmwareVersion  String?
+
+  batteryLevel     Int?     // 0-100
+  batteryLastChecked DateTime?
+
+  online           Boolean  @default(true)
+  lastSeen         DateTime?
+
+  capabilities     Json?    // {offline_codes, auto_unlock, fingerprint}
+
+  // Relationships
+  property         Property @relation(fields: [propertyId], references: [id])
+  unit             Unit?    @relation(fields: [unitId], references: [id])
+  accessCodes      AccessCode[]
+  accessEvents     AccessEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([deviceId])
+  @@map("smart_locks")
+}
+
+enum LockProvider {
+  AUGUST
+  YALE
+  SCHLAGE
+  IGLOOHOME
+  KWIKSET
+  NUKI
+  TTLOCK
+  OTHER
+}
+
+model AccessCode {
+  id              String   @id @default(uuid())
+  smartLockId     String
+  reservationId   String?
+
+  codeType        CodeType
+  pinCode         String
+  name            String
+
+  startsAt        DateTime
+  endsAt          DateTime?
+
+  status          CodeStatus @default(ACTIVE)
+
+  seamAccessCodeId String?  // Seam API ID
+
+  // Relationships
+  smartLock       SmartLock @relation(fields: [smartLockId], references: [id], onDelete: Cascade)
+  reservation     Reservation? @relation(fields: [reservationId], references: [id])
+  accessEvents    AccessEvent[]
+
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([smartLockId])
+  @@index([reservationId])
+  @@map("access_codes")
+}
+
+enum CodeType {
+  GUEST
+  CLEANER
+  MAINTENANCE
+  MANAGER
+  TEMPORARY
+}
+
+enum CodeStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+model AccessEvent {
+  id            String   @id @default(uuid())
+  smartLockId   String
+  accessCodeId  String?
+  reservationId String?
+
+  eventType     AccessEventType
+  occurredAt    DateTime
+  metadata      Json?    // {method, battery_level, etc}
+
+  // Relationships
+  smartLock     SmartLock @relation(fields: [smartLockId], references: [id])
+  accessCode    AccessCode? @relation(fields: [accessCodeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([smartLockId, occurredAt(sort: Desc)])
+  @@map("access_events")
+}
+
+enum AccessEventType {
+  UNLOCKED
+  LOCKED
+  CODE_USED
+  TAMPER_DETECTED
+  BATTERY_LOW
+  OFFLINE
+}
+
+// ============================================================================
+// DAMAGE TRACKING & INSPECTIONS
+// ============================================================================
+
+model Inspection {
+  id             String   @id @default(uuid())
+  propertyId     String
+  unitId         String?
+  reservationId  String?
+  inspectorId    String
+
+  inspectionType InspectionType
+  status         InspectionStatus @default(SCHEDULED)
+
+  scheduledAt    DateTime
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  photos         Json     @default("[]") // [{room, angle, url, timestamp, gps}]
+  overallCondition Condition?
+  notes          String?
+
+  // Relationships
+  property       Property @relation(fields: [propertyId], references: [id])
+  unit           Unit?    @relation(fields: [unitId], references: [id])
+  reservation    Reservation? @relation(fields: [reservationId], references: [id])
+  inspector      User     @relation(fields: [inspectorId], references: [id])
+  damages        Damage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([inspectorId])
+  @@map("inspections")
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+  PERIODIC
+  PRE_LISTING
+  POST_INCIDENT
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  REQUIRES_REVIEW
+}
+
+enum Condition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+model Damage {
+  id              String   @id @default(uuid())
+  inspectionId    String
+  reservationId   String?
+  propertyId      String
+
+  room            String
+  location        String   // wall, ceiling, floor, furniture item
+
+  damageType      DamageType
+  severity        Severity
+  description     String
+
+  photos          Json     @default("[]")
+  beforePhotoUrl  String?
+  afterPhotoUrl   String?
+
+  // AI Detection
+  aiDetected      Boolean  @default(false)
+  aiConfidence    Decimal? @db.Decimal(5, 4)
+  aiDamageType    String?
+  aiSeverity      String?
+  aiBoundingBox   Json?    // {x, y, width, height}
+
+  // Cost Estimation
+  estimatedCostAi     Decimal? @db.Decimal(10, 2)
+  estimatedCostManual Decimal? @db.Decimal(10, 2)
+  actualCost          Decimal? @db.Decimal(10, 2)
+
+  status          DamageStatus @default(REPORTED)
+  responsibleParty ResponsibleParty?
+
+  // Relationships
+  inspection      Inspection @relation(fields: [inspectionId], references: [id])
+  reservation     Reservation? @relation(fields: [reservationId], references: [id])
+  property        Property @relation(fields: [propertyId], references: [id])
+  workOrders      WorkOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([propertyId])
+  @@map("damages")
+}
+
+enum DamageType {
+  STAIN
+  HOLE
+  CRACK
+  BURN
+  WATER_DAMAGE
+  BROKEN_ITEM
+  SCRATCH
+  MOLD
+  OTHER
+}
+
+enum Severity {
+  MINOR
+  MODERATE
+  MAJOR
+  CRITICAL
+}
+
+enum DamageStatus {
+  REPORTED
+  DISPUTED
+  APPROVED
+  REPAIRED
+}
+
+enum ResponsibleParty {
+  GUEST
+  OWNER
+  WEAR_AND_TEAR
+}
+
+// ============================================================================
+// MAINTENANCE & WORK ORDERS
+// ============================================================================
+
+model WorkOrder {
+  id              String   @id @default(uuid())
+  propertyId      String
+  damageId        String?
+
+  workOrderType   WorkOrderType
+  category        WorkCategory
+
+  title           String
+  description     String
+  priority        Priority @default(NORMAL)
+  status          WorkOrderStatus @default(PENDING)
+
+  vendorId        String?
+  assignedTo      String?
+
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  estimatedCost   Decimal? @db.Decimal(10, 2)
+  actualCost      Decimal? @db.Decimal(10, 2)
+
+  photosBefore    Json     @default("[]")
+  photosAfter     Json     @default("[]")
+
+  completionNotes String?
+
+  // Relationships
+  property        Property @relation(fields: [propertyId], references: [id])
+  damage          Damage?  @relation(fields: [damageId], references: [id])
+  vendor          Vendor?  @relation(fields: [vendorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+  @@map("work_orders")
+}
+
+enum WorkOrderType {
+  REPAIR
+  PREVENTIVE
+  EMERGENCY
+  UPGRADE
+}
+
+enum WorkCategory {
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  APPLIANCE
+  STRUCTURAL
+  PAINTING
+  CLEANING
+  LANDSCAPING
+  OTHER
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum WorkOrderStatus {
+  PENDING
+  ASSIGNED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Vendor {
+  id                String   @id @default(uuid())
+  name              String
+  company           String?
+  specialties       Json     @default("[]") // [plumbing, electrical, hvac]
+  contactInfo       Json     // {email, phone, address}
+  serviceAreas      Json     @default("[]")
+
+  rating            Decimal? @db.Decimal(3, 2)
+  totalJobs         Int      @default(0)
+
+  pricingInfo       Json?    // hourly_rate, callout_fee, etc
+
+  insuranceVerified Boolean  @default(false)
+  licenseNumber     String?
+
+  status            VendorStatus @default(ACTIVE)
+
+  // Relationships
+  workOrders        WorkOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vendors")
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ============================================================================
+// SERVICE REQUESTS (Guest Experience)
+// ============================================================================
+
+model ServiceRequest {
+  id              String   @id @default(uuid())
+  reservationId   String
+  guestId         String
+
+  type            ServiceRequestType
+  category        String?
+  priority        Priority @default(NORMAL)
+
+  title           String
+  description     String?
+  photos          Json     @default("[]")
+
+  status          ServiceRequestStatus @default(PENDING)
+  assignedTo      String?
+
+  requestedAt     DateTime @default(now())
+  assignedAt      DateTime?
+  completedAt     DateTime?
+
+  resolutionNotes String?
+  guestRating     Int?     // 1-5
+
+  // Relationships
+  reservation     Reservation @relation(fields: [reservationId], references: [id])
+  guest           Guest    @relation(fields: [guestId], references: [id])
+  assignee        User?    @relation("AssignedTo", fields: [assignedTo], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+  @@map("service_requests")
+}
+
+enum ServiceRequestType {
+  HOUSEKEEPING
+  MAINTENANCE
+  AMENITY
+  CONCIERGE
+  OTHER
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================================
+// UPSELLS & ORDERS
+// ============================================================================
+
+model UpsellOrder {
+  id              String   @id @default(uuid())
+  reservationId   String
+  guestId         String
+
+  category        UpsellCategory
+  provider        String?  // uber, doordash, instacart, viator
+
+  items           Json     // order items
+  pricing         Json     // {subtotal, fees, markup, total}
+
+  status          OrderStatus @default(PENDING)
+
+  providerOrderId String?
+  trackingUrl     String?
+
+  scheduledFor    DateTime?
+  deliveredAt     DateTime?
+
+  // Relationships
+  reservation     Reservation @relation(fields: [reservationId], references: [id])
+  guest           Guest    @relation(fields: [guestId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reservationId])
+  @@map("upsell_orders")
+}
+
+enum UpsellCategory {
+  FOOD_DELIVERY
+  GROCERY
+  TRANSPORTATION
+  ACTIVITY
+  SPA
+  EARLY_CHECKIN
+  LATE_CHECKOUT
+  EXTRA_CLEANING
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  DELIVERED
+  CANCELLED
+}
+
+// ============================================================================
+// AI CONVERSATIONS
+// ============================================================================
+
+model AiConversation {
+  id                String   @id @default(uuid())
+  guestId           String
+  reservationId     String?
+
+  platform          ConversationPlatform
+  messages          Json     @default("[]")
+  sentimentScore    Decimal? @db.Decimal(3, 2) // -1.0 to 1.0
+
+  aiHandled         Boolean  @default(true)
+  escalatedToHuman  Boolean  @default(false)
+  escalatedAt       DateTime?
+
+  // Relationships
+  guest             Guest    @relation(fields: [guestId], references: [id])
+  reservation       Reservation? @relation(fields: [reservationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([guestId])
+  @@index([reservationId])
+  @@map("ai_conversations")
+}
+
+enum ConversationPlatform {
+  SMS
+  WHATSAPP
+  APP
+  WEB
+  EMAIL
+}
+
+// ============================================================================
+// INVENTORY MANAGEMENT
+// ============================================================================
+
+model InventoryCategory {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  parentCategoryId String?
+  type             InventoryCategoryType
+
+  // Relationships
+  parentCategory   InventoryCategory? @relation("InventorySubcategories", fields: [parentCategoryId], references: [id])
+  subcategories    InventoryCategory[] @relation("InventorySubcategories")
+  items            InventoryItem[]
+
+  createdAt DateTime @default(now())
+
+  @@map("inventory_categories")
+}
+
+enum InventoryCategoryType {
+  FURNITURE
+  APPLIANCE
+  CONSUMABLE
+  STAGING
+  AMENITY
+}
+
+model InventoryItem {
+  id                     String   @id @default(uuid())
+  categoryId             String
+
+  sku                    String   @unique
+  name                   String
+  description            String?
+
+  brand                  String?
+  model                  String?
+
+  unitOfMeasure          String   // each, pack, box, gallon
+
+  photos                 Json     @default("[]")
+
+  isSerialized           Boolean  @default(false)
+  isConsumable           Boolean  @default(false)
+
+  purchasePrice          Decimal? @db.Decimal(10, 2)
+  replacementCost        Decimal? @db.Decimal(10, 2)
+  expectedLifespanMonths Int?
+
+  vendorId               String?
+  vendorSku              String?
+
+  // Relationships
+  category               InventoryCategory @relation(fields: [categoryId], references: [id])
+  levels                 InventoryLevel[]
+  instances              ItemInstance[]
+  transactions           InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
+model InventoryLevel {
+  id                String   @id @default(uuid())
+  itemId            String
+  propertyId        String?
+  unitId            String?
+  room              String?
+
+  quantityOnHand    Int      @default(0)
+  quantityReserved  Int      @default(0)
+
+  minQuantity       Int?     // reorder point
+  maxQuantity       Int?     // target stock level
+
+  lastCountedAt     DateTime?
+  lastCountedBy     String?
+
+  // Relationships
+  item              InventoryItem @relation(fields: [itemId], references: [id])
+  property          Property? @relation(fields: [propertyId], references: [id])
+  unit              Unit?     @relation(fields: [unitId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([itemId, propertyId, unitId, room])
+  @@index([propertyId])
+  @@map("inventory_levels")
+}
+
+model ItemInstance {
+  id             String   @id @default(uuid())
+  itemId         String
+
+  serialNumber   String?  @unique
+  barcode        String?  @unique
+
+  currentPropertyId String?
+  currentUnitId     String?
+  currentRoom       String?
+
+  condition      ItemCondition @default(NEW)
+
+  purchaseDate   DateTime?
+  warrantyExpiration DateTime?
+
+  maintenanceSchedule Json? // {last_service, next_service}
+
+  // Relationships
+  item           InventoryItem @relation(fields: [itemId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("item_instances")
+}
+
+enum ItemCondition {
+  NEW
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+model InventoryTransaction {
+  id                 String   @id @default(uuid())
+  itemId             String
+  instanceId         String?
+
+  transactionType    InventoryTransactionType
+  quantity           Int
+
+  fromPropertyId     String?
+  fromRoom           String?
+
+  toPropertyId       String?
+  toRoom             String?
+
+  reason             String?
+  notes              String?
+
+  cost               Decimal? @db.Decimal(10, 2)
+
+  performedBy        String   // user ID
+
+  // Relationships
+  item               InventoryItem @relation(fields: [itemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId, createdAt(sort: Desc)])
+  @@map("inventory_transactions")
+}
+
+enum InventoryTransactionType {
+  RECEIVE
+  CONSUME
+  TRANSFER
+  ADJUST
+  DAMAGE
+  DISPOSE
+}
+
+model StagingDesign {
+  id                    String   @id @default(uuid())
+  propertyId            String
+  unitId                String?
+  room                  String?
+
+  designName            String
+  description           String?
+
+  style                 String?  // modern, traditional, coastal, minimalist
+  colorScheme           String?
+
+  photosBefore          Json     @default("[]")
+  photosAfter           Json     @default("[]")
+
+  items                 Json     // [{item_id, instance_id, quantity, placement}]
+
+  totalCost             Decimal? @db.Decimal(10, 2)
+
+  // ROI Tracking
+  avgNightlyRateBefore  Decimal? @db.Decimal(10, 2)
+  avgNightlyRateAfter   Decimal? @db.Decimal(10, 2)
+  bookingRateBefore     Decimal? @db.Decimal(5, 4)
+  bookingRateAfter      Decimal? @db.Decimal(5, 4)
+
+  implementedAt         DateTime?
+
+  // Relationships
+  property              Property @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@map("staging_designs")
+}
