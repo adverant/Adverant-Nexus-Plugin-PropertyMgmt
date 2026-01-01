@@ -1,6 +1,6 @@
 # Nexus Property Management Platform
 
-**Award-Winning, AI-Powered Vacation Rental Management System**
+**AI-Powered Vacation Rental Management System**
 
 Complete property management solution integrated with the Adverant Nexus stack, featuring:
 - 🏠 Multi-property management

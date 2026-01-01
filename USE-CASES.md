@@ -68,9 +68,9 @@ class MaintenanceWorkflow {
 
 ### Business Impact
 
-- **75% reduction** in response time
-- **40% fewer** emergency escalations
-- **$15,000/year** saved in repair costs through early intervention
+- **Faster response times** through automated triage
+- **Fewer emergency escalations** with proactive routing
+- **Reduced repair costs** through early intervention
 
 ---
 
@@ -150,9 +150,9 @@ class RentCollectionService:
 
 ### Business Impact
 
-- **95% on-time payment rate** (up from 82%)
-- **60% reduction** in collection staff time
-- **$8,000/month** recovered late fees
+- **Improved on-time payment rates** through automated reminders
+- **Reduced collection effort** with automated workflows
+- **Recovered late fees** through consistent enforcement
 
 ---
 
@@ -232,7 +232,7 @@ class PortfolioAnalytics {
 ### Business Impact
 
 - **Real-time visibility** into portfolio performance
-- **80% reduction** in report generation time
+- **Faster report generation** compared to manual process
 - **Data-driven decisions** on property investments
 
 ---
@@ -310,8 +310,8 @@ class TenantScreeningService {
 
 ### Business Impact
 
-- **24-hour** screening turnaround (down from 5 days)
-- **50% reduction** in problematic tenant placements
+- **Faster screening turnaround** than manual process
+- **Fewer problematic tenant placements** with AI risk assessment
 - **Consistent, fair** screening criteria
 
 ---
@@ -384,8 +384,8 @@ class LeaseRenewalOptimizer:
 
 ### Business Impact
 
-- **85% renewal rate** (up from 65%)
-- **$50,000/year** saved in turnover costs
+- **Improved renewal rates** through proactive outreach
+- **Reduced turnover costs** with timely renewal campaigns
 - **Optimized rent increases** based on market data
 
 ---

@@ -1,21 +1,19 @@
 # PropertyAI Quick Start Guide
 
-**Reduce property management overhead by 60% and boost NOI by 15%** - Join 2,500+ property managers who trust PropertyAI to manage over 50,000 units.
-
-> "PropertyAI cut our admin time in half and increased our occupancy rate to 97%. The ROI was clear within the first month." - Jennifer Martinez, VP Operations, Horizon Property Group (847 units)
+**AI-powered property management** - Streamline maintenance, tenant communications, rent collection, and financial reporting with intelligent automation.
 
 ---
 
 ## The PropertyAI Advantage
 
-| Metric | Before PropertyAI | After PropertyAI | Impact |
-|--------|-------------------|------------------|--------|
-| Maintenance Response | 48+ hours | 4 hours | **92% faster** |
-| On-Time Rent Collection | 82% | 97% | **$18K saved/year** per 100 units |
-| Tenant Turnover | 35% annually | 18% annually | **$25K saved** in turnover costs |
-| Staff Time on Admin | 40 hours/week | 16 hours/week | **60% reduction** |
+| Feature | Traditional Management | PropertyAI |
+|---------|------------------------|------------|
+| Maintenance Triage | Manual dispatch | AI-prioritized routing |
+| Rent Collection | Manual follow-ups | Automated reminders |
+| Tenant Portal | Separate system | Integrated experience |
+| Financial Reporting | Manual compilation | Real-time dashboards |
 
-**98% of customers see positive ROI within 30 days.**
+**Efficiency gains vary based on portfolio size and existing processes.**
 
 ---
 
@@ -39,7 +37,7 @@
 3. Click **Install** and select your tier
 4. The plugin activates automatically within 60 seconds
 
-*93% of customers choose marketplace installation.*
+*Recommended: Marketplace installation is the easiest method.*
 
 ### Method 2: Nexus CLI
 

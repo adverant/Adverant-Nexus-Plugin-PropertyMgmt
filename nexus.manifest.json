@@ -1,0 +1,115 @@
+{
+  "name": "nexus-propertymgmt",
+  "displayName": "PropertyAI - Intelligent Property Management",
+  "version": "1.0.0",
+  "description": "Comprehensive AI-powered property management platform. Tenant management, maintenance scheduling, financial tracking, and portfolio analytics for residential and commercial properties.",
+  "developer": {
+    "name": "Adverant",
+    "url": "https://adverant.ai",
+    "email": "plugins@adverant.ai",
+    "verified": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adverant/Adverant-Nexus-Plugin-PropertyMgmt"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "property-management",
+    "real-estate",
+    "tenant-management",
+    "maintenance",
+    "portfolio",
+    "landlord"
+  ],
+  "nexus": {
+    "minVersion": "1.0.0",
+    "executionMode": "mcp_container",
+    "isolationLevel": 2,
+    "capabilities": [
+      "tenant-management",
+      "maintenance-scheduling",
+      "rent-collection",
+      "financial-tracking",
+      "portfolio-analytics",
+      "document-management"
+    ],
+    "permissions": [
+      "network:external",
+      "filesystem:temp",
+      "service:mageagent",
+      "service:fileprocess"
+    ],
+    "entrypoint": "dist/index.js",
+    "healthCheck": "/health",
+    "readinessCheck": "/ready",
+    "livenessCheck": "/live"
+  },
+  "resources": {
+    "cpuMillicores": 1000,
+    "memoryMB": 2048,
+    "diskGB": 10,
+    "timeoutMs": 180000,
+    "maxConcurrentJobs": 15
+  },
+  "api": {
+    "version": "v1",
+    "basePath": "/api/v1/property",
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/properties",
+        "description": "List properties"
+      },
+      {
+        "method": "POST",
+        "path": "/tenants",
+        "description": "Add tenant"
+      },
+      {
+        "method": "POST",
+        "path": "/maintenance",
+        "description": "Create maintenance request"
+      },
+      {
+        "method": "GET",
+        "path": "/financials/:propertyId",
+        "description": "Get financial summary"
+      }
+    ]
+  },
+  "pricing": {
+    "model": "tiered",
+    "currency": "USD",
+    "tiers": [
+      {
+        "name": "starter",
+        "displayName": "Starter",
+        "priceMonthly": 2900,
+        "limits": { "units": 10 },
+        "features": ["basic-management", "tenant-portal"]
+      },
+      {
+        "name": "professional",
+        "displayName": "Professional",
+        "priceMonthly": 9900,
+        "limits": { "units": 100 },
+        "features": ["maintenance-automation", "financial-reporting", "analytics"],
+        "popular": true
+      },
+      {
+        "name": "enterprise",
+        "displayName": "Enterprise",
+        "priceMonthly": -1,
+        "limits": { "units": -1 },
+        "features": ["unlimited", "portfolio-management", "accounting-integration"]
+      }
+    ]
+  },
+  "marketplace": {
+    "category": "real-estate",
+    "subcategory": "property-management",
+    "featured": true,
+    "tags": ["property-management", "real-estate", "tenant", "maintenance", "landlord"]
+  }
+}
